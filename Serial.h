@@ -11,7 +11,7 @@
 #include <string.h>
 #include <string>
  
-const long long RecvBufferLen = 1024;   //设置接收数据缓冲区大小
+const long long RecvBufferLen = 1024;   //接收数据缓冲区大小
  
 typedef enum
 {
@@ -73,3 +73,5 @@ private:
  
     struct termios ProtoOpt;   //存放串口原始配置
 };
+
+void Uart_Send(std::string send_buff,Serial *s);

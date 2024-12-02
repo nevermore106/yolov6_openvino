@@ -1,12 +1,13 @@
-#include <bits/stdc++.h>
+#pragma once
+
 #include <opencv2/opencv.hpp>
 #include <cstdio>
 #include <cstring>
 #include <iostream>
-#include <iomanip>
 #include <algorithm>
-
-using namespace std;
+#include <vector>
+#include <string> 
+#include "Serial.h"
 
 struct Resize
 {
@@ -24,18 +25,18 @@ struct Detection
 
 class Deal{
   public:
-    Deal(){mode_=0;}
+    Deal(){mode_ = 0;}
     Deal(int);
     
-    void Get_process(vector<Detection>&pos);
-    int Euclidean_distance(vector<int>a,vector<int>b);
+    void Get_process(std::vector<Detection>&pos);
+    int Euclidean_distance(std::vector<int>a,std::vector<int>b);
     bool Is_close(Detection &pre,Detection &cur);
     bool Is_Same_Line(Detection &pre,Detection &cur);
-    std::string Wrong_Number_Filter(vector<vector<char>>mat);
+    std::string Wrong_Number_Filter(std::vector<std::vector<char>>mat);
 
-    vector<char>map;
-    vector<vector<char>>record_map;
-    string aes_output_;
+    std::vector<char>map;
+    std::vector<std::vector<char>>record_map;
+    std::string aes_output_;
     int mode_;
 };
 

@@ -2,25 +2,19 @@
 #include <openvino/openvino.hpp>
 #include <chrono>
 #include <thread>
-#include <atomic>
 #include <algorithm>
 #include "header.h"
-
-using namespace std;
  
 const float SCORE_THRESHOLD = 0.7;
 const float NMS_THRESHOLD = 0.5;
 const float CONFIDENCE_THRESHOLD = 0.5;
 const int cacl_per_pic= 10;
-int pic_number = 0;
-vector<cv::Point>points_set;
-cv::Mat img;
 
 int main() {
     /******************读模型*******************/
     ov::Core core;
 
-    std::shared_ptr<ov::Model> model = core.read_model("/home/zihe6/OpenVINO/weight/best_ckpt.xml", "/home/zihe6/OpenVINO/weight/best_ckpt.bin");
+    std::shared_ptr<ov::Model> model = core.read_model(MODEL_PATH, MODEL_BIN_PATH);
     Deal deal;
     //此处需要自行修改xml和bin的路径
 
@@ -33,14 +27,6 @@ int main() {
     /****************初始化串口******************/
     Serial s0;
     s0.OpenSerial("/dev/ttyUSB0", E_BaudRate::_115200, E_DataSize::_8, E_Parity::None, E_StopBit::_1);
-
-    Serial s1;
-    s1.OpenSerial("/dev/ttyUSB1", E_BaudRate::_115200, E_DataSize::_8, E_Parity::None, E_StopBit::_1);
-
-    Serial s2;
-    s2.OpenSerial("/dev/ttyUSB2", E_BaudRate::_115200, E_DataSize::_8, E_Parity::None, E_StopBit::_1);
-
-    std::thread serialThread(serialThreadFunc,&s0,&s1);
 
     /***************初始化模型*****************/
     ov::preprocess::PrePostProcessor ppp = ov::preprocess::PrePostProcessor(model);
@@ -56,9 +42,14 @@ int main() {
     model = ppp.build();
     ov::CompiledModel compiled_model = core.compile_model(model, "CPU");
 
+    cv::Mat img;
+    int filter_number = 0;
+    
     while(1){
     // /****************读图片******************/ 
     capture.read(img);
+
+    auto start = std::chrono::high_resolution_clock::now();
 
     Resize res = resize_and_pad(img, cv::Size(640, 640));
     //Create tensor from image
@@ -79,8 +70,8 @@ int main() {
  
     //Postprocessing including NMS  
     std::vector<cv::Rect> boxes;
-    vector<int> class_ids;
-    vector<float> confidences;
+    std::vector<int> class_ids;
+    std::vector<float> confidences;
  
     for (int i = 0; i < output_shape[1]; i++) {
         float* detection = &detections[i * output_shape[2]];
@@ -138,12 +129,12 @@ int main() {
         box.y = ry * box.y;
         box.width = rx * box.width;
         box.height = ry * box.height;
-        cout << "Bbox" << i + 1 << ": Class: " << classId << " "
+        std::cout << "Bbox" << i + 1 << ": Class: " << classId << " "
             << "Confidence: " << confidence << " Scaled coords: [ "
             << "cx: " << (float)(box.x + (box.width / 2)) / img.cols << ", "
             << "cy: " << (float)(box.y + (box.height / 2)) / img.rows << ", "
             << "w: " << (float)box.width / img.cols << ", "
-            << "h: " << (float)box.height / img.rows << " ]" << endl;
+            << "h: " << (float)box.height / img.rows << " ]" << std::endl;
         float xmax = box.x + box.width;
         float ymax = box.y + box.height;
         cv::rectangle(img, cv::Point(box.x, box.y), cv::Point(xmax, ymax), cv::Scalar(0, 255, 0), 3);
@@ -151,23 +142,25 @@ int main() {
         cv::putText(img, std::to_string(classId), cv::Point(box.x, box.y - 5), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0)); 
     }
 
+    auto end = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> duration = end - start;
+    std::cout << "Times take: " << duration.count() << " seconds" << std::endl;
     // /****************数字处理*****************/
 	  deal.Get_process(output);
-
     deal.record_map.push_back(deal.map);
 
-    pic_number++;
-    if(pic_number % cacl_per_pic == 0) {
-      Uart_Send_AT(deal.Wrong_Number_Filter(deal.record_map),&s2,"\n\nOK",0);
+    if(filter_number++ % cacl_per_pic == 0) {
+      Uart_Send(deal.Wrong_Number_Filter(deal.record_map),&s0);
       deal.record_map.clear();
-      pic_number -= cacl_per_pic;
+      filter_number -= cacl_per_pic;
     }
 
     //显示具体结果
-    cv::namedWindow("ImageWindow", cv::WINDOW_NORMAL);
-    cv::resizeWindow("ImageWindow", 800, 600);
-    cv::imshow("ImageWindow", img);
-    cv::waitKey(1);
+    // cv::namedWindow("ImageWindow", cv::WINDOW_NORMAL);
+    // cv::resizeWindow("ImageWindow", 800, 600);
+    // cv::imshow("ImageWindow", img);
+    // cv::waitKey(1);
 
     }
 
@@ -178,22 +171,22 @@ int main() {
 
 void OpenCamera(cv::VideoCapture& capture) {
   if(!capture.isOpened()){
-    cout<<"camera0 open filed"<<endl;
+    std::cout<<"camera0 open filed"<<std::endl;
     cv::VideoCapture capture("/dev/video1");
     sleep(1);
     if(!capture.isOpened()){
-      cout<<"camera1 open filed"<<endl;
+      std::cout<<"camera1 open filed"<<std::endl;
       return;
     }
   }
-  cout<<"camera open"<<endl;
+  std::cout<<"camera open"<<std::endl;
 }
 
 
 Resize resize_and_pad(cv::Mat& img, cv::Size new_shape) {
     float width = img.cols;
     float height = img.rows;
-    float r = float(new_shape.width / max(width, height));
+    float r = float(new_shape.width / std::max(width, height));
     int new_unpadW = int(round(width * r));
     int new_unpadH = int(round(height * r));
     Resize resize;
@@ -207,10 +200,3 @@ Resize resize_and_pad(cv::Mat& img, cv::Size new_shape) {
     return resize;
 }
 
-void serialThreadFunc(Serial*S1,Serial*S2) {
-
-  while(1){
-    Uart_Receive_Transmit(S1,S2);
-    usleep(50*1000);
-  }
-}

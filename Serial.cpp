@@ -181,6 +181,8 @@ int Serial::Close()
     }
     close(nSerialID);
     b_OpenSign = false;
+
+    return true;
 }
  
  
@@ -295,4 +297,11 @@ int Serial::RefreshBuffer(unsigned char *pBuf, int Len, bool RecvTypet)
     }
  
     return ren;
+}
+
+void Uart_Send(std::string send_buff,Serial *s){
+    unsigned char buff[send_buff.size()];
+    strcpy((char*)buff,send_buff.data());
+
+    s->Send(buff, sizeof(buff),s->nSerialID);
 }
